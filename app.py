@@ -85,7 +85,7 @@ if img is not None:
     # Control de corte (eje)
     corte = st.sidebar.radio("Selecciona el tipo de corte", ("Axial", "Coronal", "Sagital"))
     
-    # Control para cambiar el índice de la imagen según el corte
+    # Asegurarse de que el índice del corte esté dentro del rango válido
     if corte == "Axial":
         corte_idx = st.sidebar.slider("Selecciona el índice axial", 0, n_ax - 1, n_ax // 2)
         axial_img = img[corte_idx, :, :]
@@ -93,14 +93,14 @@ if img is not None:
         sagital_img = img[:, :, n_sag // 2]
     elif corte == "Coronal":
         corte_idx = st.sidebar.slider("Selecciona el índice coronal", 0, n_cor - 1, n_cor // 2)
-        axial_img = img[corte_idx, :, :]
         coronal_img = img[:, corte_idx, :]
+        axial_img = img[corte_idx, :, :]
         sagital_img = img[:, :, n_sag // 2]
     elif corte == "Sagital":
         corte_idx = st.sidebar.slider("Selecciona el índice sagital", 0, n_sag - 1, n_sag // 2)
+        sagital_img = img[:, :, corte_idx]
         axial_img = img[corte_idx, :, :]
         coronal_img = img[:, n_cor // 2, :]
-        sagital_img = img[:, :, corte_idx]
 
     def render2d(slice2d):
         fig, ax = plt.subplots()
