@@ -41,8 +41,8 @@ def find_dicom_series(directory):
 
 def apply_window_level(image, window_width, window_center):
     img_float = image.astype(float)
-    min_v = window_center - window_width / 2.0
-    max_v = window_center + window_width / 2.0
+    min_v = window_center - window_width/2.0
+    max_v = window_center + window_width/2.0
     windowed = np.clip(img_float, min_v, max_v)
     if max_v != min_v:
         return (windowed - min_v) / (max_v - min_v)
@@ -63,7 +63,7 @@ if dirname:
     with st.spinner('Buscando series DICOM...'):
         dicom_series = find_dicom_series(dirname)
     if dicom_series:
-        options = [f"Serie {i + 1}: {series[0][:10]}... ({len(series[2])} archivos)" for i, series in enumerate(dicom_series)]
+        options = [f"Serie {i+1}: {series[0][:10]}... ({len(series[2])} archivos)" for i, series in enumerate(dicom_series)]
         selection = st.sidebar.selectbox("Seleccionar serie DICOM:", options)
         selected_idx = options.index(selection)
         sid, dirpath, files = dicom_series[selected_idx]
@@ -79,7 +79,7 @@ if img is not None:
     n_ax, n_cor, n_sag = img.shape
     min_val, max_val = float(img.min()), float(img.max())
     default_ww = max_val - min_val
-    default_wc = min_val + default_ww / 2
+    default_wc = min_val + default_ww/2
     ww, wc = default_ww, default_wc
 
     def render2d(slice2d):
@@ -88,27 +88,9 @@ if img is not None:
         ax.imshow(apply_window_level(slice2d, ww, wc), cmap='gray', origin='lower')
         return fig
 
-    # Establecer cuadrantes según la cantidad de imágenes
-    n_images = 4  # Máximo de imágenes por página, podemos ajustarlo según las imágenes que tengas.
-    rows = 2
-    cols = 2
-    fig, axs = plt.subplots(rows, cols, figsize=(10, 10))
-
-    images_to_show = [
-        img[n_ax // 2, :, :],  # Axial
-        img[:, n_cor // 2, :],  # Coronal
-        img[:, :, n_sag // 2],  # Sagital
-        img[n_ax // 4, :, :]    # Otra sección axial para llenar el último cuadrante
-    ]
-
-    for i in range(n_images):
-        row = i // cols
-        col = i % cols
-        ax = axs[row, col]  # Seleccionar el cuadrante correspondiente
-        ax.axis('off')
-        ax.imshow(apply_window_level(images_to_show[i], ww, wc), cmap='gray', origin='lower')
-
-    st.pyplot(fig)
+    ax_fig = render2d(img[n_ax//2, :, :])
+    cor_fig = render2d(img[:, n_cor//2, :])
+    sag_fig = render2d(img[:, :, n_sag//2])
 
     target_shape = (64, 64, 64)
     img_resized = resize(original_image, target_shape, anti_aliasing=True)
@@ -122,8 +104,21 @@ if img is not None:
     ))
     fig3d.update_layout(margin=dict(l=0, r=0, b=0, t=0))
 
-    st.subheader("Vista 3D")
-    st.plotly_chart(fig3d, use_container_width=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Vista Axial")
+        st.pyplot(ax_fig)
+    with col2:
+        st.subheader("Vista Coronal")
+        st.pyplot(cor_fig)
+
+    col3, col4 = st.columns(2)
+    with col3:
+        st.subheader("Vista Sagital")
+        st.pyplot(sag_fig)
+    with col4:
+        st.subheader("Vista 3D")
+        st.plotly_chart(fig3d, use_container_width=True)
 
 st.markdown('<p class="giant-title">Brachyanalysis</p>', unsafe_allow_html=True)
 st.markdown("""
