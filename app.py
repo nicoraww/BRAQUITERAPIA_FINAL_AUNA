@@ -88,13 +88,19 @@ if img is not None:
     # Control para cambiar el índice de la imagen según el corte
     if corte == "Axial":
         corte_idx = st.sidebar.slider("Selecciona el índice axial", 0, n_ax - 1, n_ax // 2)
-        image_slice = img[corte_idx, :, :]
+        axial_img = img[corte_idx, :, :]
+        coronal_img = img[:, n_cor // 2, :]
+        sagital_img = img[:, :, n_sag // 2]
     elif corte == "Coronal":
         corte_idx = st.sidebar.slider("Selecciona el índice coronal", 0, n_cor - 1, n_cor // 2)
-        image_slice = img[:, corte_idx, :]
+        axial_img = img[corte_idx, :, :]
+        coronal_img = img[:, corte_idx, :]
+        sagital_img = img[:, :, n_sag // 2]
     elif corte == "Sagital":
         corte_idx = st.sidebar.slider("Selecciona el índice sagital", 0, n_sag - 1, n_sag // 2)
-        image_slice = img[:, :, corte_idx]
+        axial_img = img[corte_idx, :, :]
+        coronal_img = img[:, n_cor // 2, :]
+        sagital_img = img[:, :, corte_idx]
 
     def render2d(slice2d):
         fig, ax = plt.subplots()
@@ -109,10 +115,10 @@ if img is not None:
 
     # Crear las imágenes para cada cuadrante
     images_to_show = [
-        img[n_ax // 2, :, :],  # Axial
-        img[:, n_cor // 2, :],  # Coronal
-        img[:, :, n_sag // 2],  # Sagital
-        image_slice  # Imagen seleccionada de acuerdo al corte
+        axial_img,   # Axial
+        coronal_img, # Coronal
+        sagital_img, # Sagital
+        img[corte_idx, :, :]  # Imagen seleccionada de acuerdo al corte
     ]
 
     for i in range(4):
@@ -146,3 +152,4 @@ st.markdown("""
     Brachyanalysis - Visualizador de imágenes DICOM
 </div>
 """, unsafe_allow_html=True)
+
