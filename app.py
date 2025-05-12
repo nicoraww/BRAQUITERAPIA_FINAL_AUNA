@@ -88,16 +88,22 @@ if img is not None:
     # Asegurarse de que el índice del corte esté dentro del rango válido
     if corte == "Axial":
         corte_idx = st.sidebar.slider("Selecciona el índice axial", 0, n_ax - 1, n_ax // 2)
+        if corte_idx < 0 or corte_idx >= n_ax:
+            st.error(f"Índice axial {corte_idx} fuera de rango. El valor debe estar entre 0 y {n_ax-1}.")
         axial_img = img[corte_idx, :, :]
         coronal_img = img[:, n_cor // 2, :]
         sagital_img = img[:, :, n_sag // 2]
     elif corte == "Coronal":
         corte_idx = st.sidebar.slider("Selecciona el índice coronal", 0, n_cor - 1, n_cor // 2)
+        if corte_idx < 0 or corte_idx >= n_cor:
+            st.error(f"Índice coronal {corte_idx} fuera de rango. El valor debe estar entre 0 y {n_cor-1}.")
         coronal_img = img[:, corte_idx, :]
         axial_img = img[corte_idx, :, :]
         sagital_img = img[:, :, n_sag // 2]
     elif corte == "Sagital":
         corte_idx = st.sidebar.slider("Selecciona el índice sagital", 0, n_sag - 1, n_sag // 2)
+        if corte_idx < 0 or corte_idx >= n_sag:
+            st.error(f"Índice sagital {corte_idx} fuera de rango. El valor debe estar entre 0 y {n_sag-1}.")
         sagital_img = img[:, :, corte_idx]
         axial_img = img[corte_idx, :, :]
         coronal_img = img[:, n_cor // 2, :]
