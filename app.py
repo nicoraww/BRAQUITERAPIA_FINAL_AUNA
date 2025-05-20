@@ -8,100 +8,92 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import SimpleITK as sitk
 
-# Configuración de página
+# Configuración de página y estilo
 st.set_page_config(layout="wide", page_title="Brachyanalysis")
+st.markdown("""
+<style>
+    .giant-title { color: #28aec5; text-align: center; font-size: 48px; margin-bottom: 10px; font-weight: bold; }
+    .sub-header { color: #28aec5; font-size: 20px; margin-bottom: 5px; font-weight: bold; }
+    .sidebar-title { color: #28aec5; font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+    .plot-container { padding: 5px; }
+</style>
+""", unsafe_allow_html=True)
 
 # Título principal
-st.title("Brachyanalysis")
+st.markdown('<p class="giant-title">Brachyanalysis</p>', unsafe_allow_html=True)
 
-# Carga de archivo ZIP con DICOM en la barra lateral
-uploaded = st.sidebar.file_uploader = st.sidebar.file_uploader("Sube un archivo ZIP con tus archivos DICOM", type="zip")  # Máximo 1GB
-if file_uploader is not None:
-    try:
-        size = file_uploader.size
-    except:
-        size = len(file_uploader.getvalue())
-    if size > 1_000_000_000:
-        st.sidebar.error("El archivo supera 1 GB, por favor sube uno menor.")
-        file_uploader = None"Carga ZIP con tus archivos DICOM", type="zip")
+# Barra lateral
+st.sidebar.markdown('<p class="sidebar-title">Brachyanalysis</p>', unsafe_allow_html=True)
+st.sidebar.markdown('**Carga de DICOM (.zip)**')
+zip_file = st.sidebar.file_uploader("Selecciona ZIP con tus archivos DICOM", type="zip")
 
-# Función para encontrar y leer la primera serie DICOM
 @st.cache_data
-def load_first_series_from_zip(uploaded_zip):
+def load_first_series(uploaded):
     tmpdir = tempfile.mkdtemp()
-    with zipfile.ZipFile(io.BytesIO(uploaded_zip.read()), 'r') as zf:
+    with zipfile.ZipFile(io.BytesIO(uploaded.read()), 'r') as zf:
         zf.extractall(tmpdir)
-    # Buscar series
-    series = []
+    # Buscar la primera serie DICOM válida
     for root, _, _ in os.walk(tmpdir):
         ids = sitk.ImageSeriesReader.GetGDCMSeriesIDs(root)
         if ids:
-            # Tomar la primera serie encontrada
             files = sitk.ImageSeriesReader.GetGDCMSeriesFileNames(root, ids[0])
-            if files:
-                series.append(files)
-    if not series:
-        return None
-    files = series[0]
-    reader = sitk.ImageSeriesReader()
-    reader.SetFileNames(files)
-    image3d = reader.Execute()
-    return sitk.GetArrayViewFromImage(image3d)  # Devuelve array Z,Y,X
+            reader = sitk.ImageSeriesReader()
+            reader.SetFileNames(files)
+            img3d = reader.Execute()
+            return sitk.GetArrayViewFromImage(img3d)
+    return None
 
+# Cargar imagen
 img = None
-if uploaded:
-    with st.spinner('Extrayendo y cargando DICOM...'):
-        img = load_first_series_from_zip(uploaded)
+if zip_file:
+    with st.spinner('Cargando DICOM...'):
+        img = load_first_series(zip_file)
     if img is None:
         st.sidebar.error("No se encontró ninguna serie DICOM válida en el ZIP.")
 
-# Mostrar cuadrícula de tres vistas si exist
+# Función de ventana/nivel (sin cierres de variable)
+def window_image(slice2d, ww, wl):
+    arr = slice2d.astype(float)
+    mn = wl - ww/2.0
+    mx = wl + ww/2.0
+    clipped = np.clip(arr, mn, mx)
+    return (clipped - mn)/(mx - mn) if mx != mn else np.zeros_like(arr)
+
+# Renderizado de un slice
+def render_slice(slice2d, ww, wl):
+    fig, ax = plt.subplots(figsize=(4,4))
+    ax.imshow(window_image(slice2d, ww, wl), cmap='gray', origin='lower')
+    ax.axis('off')
+    return fig
+
+# Visualización en cuadrícula 1x3
 if img is not None:
-    # Dimensiones
     nz, ny, nx = img.shape
-    # Sliders de cortes
-    st.sidebar.subheader("Cortes")
-    z_ix = st.sidebar.slider("Axial", 0, nz-1, nz//2)
-    y_ix = st.sidebar.slider("Coronal", 0, ny-1, ny//2)
-    x_ix = st.sidebar.slider("Sagital", 0, nx-1, nx//2)
+    st.sidebar.subheader('Cortes')
+    z_ix = st.sidebar.slider('Axial', 0, nz-1, nz//2)
+    y_ix = st.sidebar.slider('Coronal', 0, ny-1, ny//2)
+    x_ix = st.sidebar.slider('Sagital', 0, nx-1, nx//2)
 
-    # Ventana y nivel
-    st.sidebar.subheader("Ventana y Nivel (WW/WL)")
-    mn, mx = float(img.min()), float(img.max())
-    default_ww = mx - mn
-    default_wl = (mx + mn)/2
-    ww = st.sidebar.number_input("WW", min_value=1.0, value=default_ww)
-    wl = st.sidebar.number_input("WL", value=default_wl)
+    # Control de ventana/nivel
+    st.sidebar.subheader('Ventana y Nivel (WW/WL)')
+    min_val, max_val = float(img.min()), float(img.max())
+    default_ww = max_val - min_val if max_val>min_val else 1.0
+    default_wl = (max_val + min_val) / 2
+    ww = st.sidebar.number_input('WW', min_value=1.0, value=default_ww)
+    wl = st.sidebar.number_input('WL', value=default_wl)
 
-    # Función de ventana
-    def window_img(slice2d):
-        arr = slice2d.astype(float)
-        mnv = wl - ww/2
-        mxv = wl + ww/2
-        clipped = np.clip(arr, mnv, mxv)
-        return (clipped - mnv)/(mxv - mnv) if mxv!=mnv else np.zeros_like(arr)
-
-    # Crear cuadrícula 1x3
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.subheader("Axial")
-        fig, ax = plt.subplots(figsize=(4,4))
-        ax.imshow(window_img(img[z_ix,:,:]), cmap='gray')
-        ax.axis('off')
-        st.pyplot(fig)
-    with col2:
-        st.subheader("Coronal")
-        fig, ax = plt.subplots(figsize=(4,4))
-        ax.imshow(window_img(img[:,y_ix,:]), cmap='gray')
-        ax.axis('off')
-        st.pyplot(fig)
-    with col3:
-        st.subheader("Sagital")
-        fig, ax = plt.subplots(figsize=(4,4))
-        ax.imshow(window_img(img[:,:,x_ix]), cmap='gray')
-        ax.axis('off')
-        st.pyplot(fig)
+    # Dibujar cuadrícula
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.subheader('Axial')
+        st.pyplot(render_slice(img[z_ix,:,:], ww, wl))
+    with c2:
+        st.subheader('Coronal')
+        st.pyplot(render_slice(img[:,y_ix,:], ww, wl))
+    with c3:
+        st.subheader('Sagital')
+        st.pyplot(render_slice(img[:,:,x_ix], ww, wl))
 
     # Pie de página
-    st.markdown("---")
-    st.markdown('<div style="text-align:center;color:#28aec5;font-size:14px;">Brachyanalysis - Quadrants Viewer</div>', unsafe_allow_html=True)
+    st.markdown('---')
+    st.markdown('<div style="text-align:center;color:#28aec5;font-size:14px;">Brachyanalysis - 2D Quadrants Viewer</div>', unsafe_allow_html=True)
